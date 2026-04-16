@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OM Tree — Ousama Merrakchi</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─────────────────────────────────────────
+       DESIGN TOKENS
+    ───────────────────────────────────────── */
+    :root {
+      --ink:       #0E0E0E;
+      --paper:     #F2EFE9;
+      --warm-mid:  #D9D4CB;
+      --accent-1:  #C8F135;
+      --accent-2:  #FF4D1C;
+      --accent-3:  #1A1AFF;
+      --accent-4:  #FFD600;
+      --accent-5:  #FF9ECD;
+
+      --border: 2.5px solid var(--ink);
+      --radius: 18px;
+      --gap: 12px;
+      --shadow: 4px 4px 0px var(--ink);
+      --shadow-press: 1px 1px 0px var(--ink);
+    }
+
+    /* ─────────────────────────────────────────
+       BASE
+    ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* cursor:none only on desktop — never block mobile */
+    @media (pointer: fine) {
+      body { cursor: none; }
+      a, button, [role="button"], .card { cursor: none; }
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background-color: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px 60px;
+      background-image: radial-gradient(circle, rgba(14,14,14,0.12) 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+      /* CRITICAL: overflow-x hidden was clipping scroll hit areas */
+      overflow-x: hidden;
+    }
+
+    /* ─────────────────────────────────────────
+       CUSTOM CURSOR — FIXED IMPLEMENTATION
+       Key rules:
+       1. position:fixed, left:0, top:0 (anchor)
+       2. translate3d(x, y, 0) positions it via JS
+       3. -50% centering baked into the transform
+       4. pointer-events:none — never blocks clicks
+       5. NO mix-blend-mode (causes stacking issues)
+       6. NO lerp / RAF loop (causes offset lag)
+       7. Hidden by default, shown on first mousemove
+    ───────────────────────────────────────── */
+    #cursor {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 14px;
+      height: 14px;
+      background: var(--ink);
+      border-radius: 50%;
+      pointer-events: none;        /* never intercepts clicks */
+      z-index: 99999;
+      /* The centering offset is part of the base transform */
+      transform: translate3d(-100px, -100px, 0) translate(-50%, -50%);
+      /* Only transition shape/color — NEVER position */
+      transition:
+        width  .22s cubic-bezier(0.34, 1, 0.5, 0.8),
+        height .22s cubic-bezier(0.34, 1, 0.5, 0.8),
+        border-radius .22s ease,
+        background    .22s ease,
+        opacity       .2s ease;
+      opacity: 0;                  /* hidden until first mousemove */
+      will-change: transform;
+    }
+
+    /* Expanded state when hovering interactive elements */
+    #cursor.is-hovering {
+      width: 16px;
+      height: 16px;
+      background: var(--accent-4);
+      border-radius: 3px;
+    }
+
+    /* Pressed state */
+    #cursor.is-pressing {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-2);
+      border-radius: 50%;
+    }
+
+    /* ─────────────────────────────────────────
+       BENTO GRID WRAPPER
+    ───────────────────────────────────────── */
+    .bento {
+      width: 100%;
+      max-width: 600px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+
+    /* ─────────────────────────────────────────
+       BASE CARD STYLES
+    ───────────────────────────────────────── */
+    .card {
+      background: var(--paper);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+      opacity: 0;
+      animation: popIn .5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      /* Tilt uses transform — keep will-change scoped */
+      will-change: transform;
+      /* Default transition for tilt reset */
+      transition: box-shadow .15s ease, transform .5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .card:active {
+      box-shadow: var(--shadow-press);
+    }
+
+    .span-2 { grid-column: span 2; }
+    .span-1 { grid-column: span 1; }
+
+    .card:nth-child(1)  { animation-delay: .05s; }
+    .card:nth-child(2)  { animation-delay: .10s; }
+    .card:nth-child(3)  { animation-delay: .15s; }
+    .card:nth-child(4)  { animation-delay: .20s; }
+    .card:nth-child(5)  { animation-delay: .25s; }
+    .card:nth-child(6)  { animation-delay: .30s; }
+    .card:nth-child(7)  { animation-delay: .35s; }
+    .card:nth-child(8)  { animation-delay: .40s; }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(16px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);   }
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 1 — HERO
+    ───────────────────────────────────────── */
+    .card-hero {
+      background: var(--ink);
+      color: var(--paper);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 28px;
+    }
+
+    .hero-left { flex: 1; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-1);
+      color: var(--ink);
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,.15);
+      margin-bottom: 14px;
+      letter-spacing: .06em;
+    }
+
+    .ping {
+      width: 8px; height: 8px;
+      background: var(--ink);
+      border-radius: 50%;
+      animation: pingAnim 1.4s ease-in-out infinite;
+    }
+    @keyframes pingAnim {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.5); opacity: .5; }
+    }
+
+    .hero-name {
+      font-family: 'Instrument Serif', serif;
+      font-size: 2.6rem;
+      line-height: 1;
+      letter-spacing: -.02em;
+      margin-bottom: 10px;
+    }
+    .hero-name em { font-style: italic; color: var(--accent-1); }
+
+    .hero-role {
+      font-size: .72rem;
+      color: rgba(242,239,233,.55);
+      line-height: 1.6;
+    }
+
+    .hero-avatar {
+      width: 72px; height: 72px;
+      border-radius: 14px;
+      background: var(--accent-1);
+      border: 2.5px solid rgba(255,255,255,.2);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Instrument Serif', serif;
+      font-size: 2rem;
+      color: var(--ink);
+      font-style: italic;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-avatar::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 4px
+      );
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 2 — GITHUB
+    ───────────────────────────────────────── */
+    .card-github {
+      background: var(--ink);
+      color: var(--paper);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 150px;
+      transition: background .3s, box-shadow .15s ease, transform .5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      text-decoration: none;
+    }
+    .card-github:hover { background: #1a1a2e; }
+
+    /* ─────────────────────────────────────────
+       CARD 3 — LINKEDIN
+    ───────────────────────────────────────── */
+    .card-linkedin {
+      background: var(--accent-3);
+      color: var(--paper);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 150px;
+      text-decoration: none;
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 4 — TICKER
+    ───────────────────────────────────────── */
+    .card-ticker {
+      background: var(--accent-1);
+      padding: 14px 0 !important;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .ticker-inner {
+      display: inline-flex;
+      animation: tickerScroll 18s linear infinite;
+    }
+    .ticker-item {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--ink);
+      padding: 0 24px;
+      letter-spacing: .05em;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    @keyframes tickerScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 5 — PORTFOLIO
+    ───────────────────────────────────────── */
+    .card-portfolio {
+      background: var(--accent-2);
+      color: var(--paper);
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-decoration: none;
+      grid-column: span 1;
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 6 — CTA
+    ───────────────────────────────────────── */
+    .card-cta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 22px 28px;
+    }
+
+    .cta-text-label {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      opacity: .5;
+      margin-bottom: 4px;
+    }
+    .cta-text-main {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.5rem;
+      line-height: 1.15;
+    }
+
+    .cta-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: var(--border);
+      box-shadow: 3px 3px 0 var(--ink);
+      text-decoration: none;
+      letter-spacing: .04em;
+      transition: transform .15s, box-shadow .15s, background .2s, color .2s;
+    }
+    .cta-btn:hover {
+      background: var(--accent-1);
+      color: var(--ink);
+      box-shadow: 5px 5px 0 var(--ink);
+    }
+    .cta-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 var(--ink);
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 7 — RESUME
+    ───────────────────────────────────────── */
+    .card-resume {
+      background: var(--accent-5);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 130px;
+      text-decoration: none;
+      grid-column: span 1;
+    }
+
+    /* ─────────────────────────────────────────
+       CARD 8 — STACK
+    ───────────────────────────────────────── */
+    .card-stack {
+      background: var(--warm-mid);
+      padding: 20px 22px;
+    }
+
+    .stack-label {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      opacity: .5;
+      margin-bottom: 14px;
+    }
+
+    .stack-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stack-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--paper);
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      padding: 5px 12px 5px 8px;
+      font-size: .73rem;
+      font-weight: 700;
+      box-shadow: 2px 2px 0 var(--ink);
+      transition: transform .15s, box-shadow .15s, background .2s;
+    }
+    .stack-pill:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 var(--ink);
+      background: var(--accent-1);
+    }
+    .stack-pill svg { flex-shrink: 0; }
+
+    /* ─────────────────────────────────────────
+       SHARED CARD COMPONENTS
+    ───────────────────────────────────────── */
+    .card-icon-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .card-icon-wrap {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .card-icon-wrap.dark  { background: rgba(0,0,0,.12); }
+
+    .arrow-chip {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .card:hover .arrow-chip { transform: translate(3px,-3px); }
+    .arrow-chip.dark { background: rgba(0,0,0,.1); }
+
+    .card-label {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      opacity: .55;
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.3rem;
+      line-height: 1.15;
+      margin-bottom: 2px;
+    }
+
+    .card-sub {
+      font-size: .7rem;
+      opacity: .6;
+      line-height: 1.5;
+    }
+
+    /* ─────────────────────────────────────────
+       BURST DOTS
+    ───────────────────────────────────────── */
+    .burst-dot {
+      position: fixed;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      border: 2px solid var(--ink);
+    }
+
+    /* ─────────────────────────────────────────
+       RESPONSIVE
+    ───────────────────────────────────────── */
+    @media (max-width: 480px) {
+      body { padding: 20px 12px 40px; }
+      .bento { grid-template-columns: 1fr; gap: 10px; }
+      .span-2 { grid-column: span 1; }
+      .hero-name { font-size: 2rem; }
+      .card-cta { flex-direction: column; align-items: flex-start; }
+      /* Restore native cursor on touch devices */
+      #cursor { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Cursor element — pointer-events:none, never blocks interaction -->
+  <div id="cursor" aria-hidden="true"></div>
+
+  <div class="bento" id="bento">
+
+    <!-- ══ CARD 1 — HERO ══ -->
+    <div class="card card-hero span-2">
+      <div class="hero-left">
+        <div class="hero-badge">
+          <span class="ping"></span>
+          OPEN TO WORK
+        </div>
+        <h1 class="hero-name">Ousama <em>Merrakchi</em></h1>
+        <p class="hero-role">Junior Fullstack Developer · JS/ React / PHP / Node  ·</p>
+      </div>
+      <div class="hero-avatar">OM</div>
+    </div>
+
+    <!-- ══ CARD 2 — GITHUB ══ -->
+    <a href="https://github.com/beerandbytes/" target="_blank" rel="noopener" class="card card-github">
+      <div class="card-icon-row">
+        <div class="card-icon-wrap">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#F2EFE9" role="img" aria-label="GitHub">
+            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.089-.745.083-.729.083-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+          </svg>
+        </div>
+        <div class="arrow-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F2EFE9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+      </div>
+      <div>
+        <p class="card-label" style="color:rgba(242,239,233,.5);">SOURCE CODE</p>
+        <p class="card-title" style="color:#F2EFE9;">GitHub</p>
+
+      </div>
+    </a>
+
+    <!-- ══ CARD 3 — LINKEDIN ══ -->
+    <a href="https://www.linkedin.com/in/ousama-merrakchi/" target="_blank" rel="noopener" class="card card-linkedin">
+      <div class="card-icon-row">
+        <div class="card-icon-wrap">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#F2EFE9" role="img" aria-label="LinkedIn">
+            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+          </svg>
+        </div>
+        <div class="arrow-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F2EFE9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+      </div>
+      <div>
+        <p class="card-label" style="color:rgba(242,239,233,.55);">NETWORK</p>
+        <p class="card-title" style="color:#F2EFE9;">LinkedIn</p>
+        <p class="card-sub" style="color:rgba(242,239,233,.55);">Let's connect</p>
+      </div>
+    </a>
+
+    <!-- ══ CARD 4 — TICKER ══ -->
+    <div class="card card-ticker span-2">
+      <div class="ticker-inner" id="ticker"></div>
+    </div>
+
+    <!-- ══ CARD 5 — PORTFOLIO ══ -->
+    <a href="https://beerandbytes.github.io/portfolio_2026/"   target="_blank"   class="card card-portfolio">
+      <div class="card-icon-row">
+        <div class="card-icon-wrap">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2EFE9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Portfolio">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </div>
+        <div class="arrow-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F2EFE9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+      </div>
+      <div>
+        <p class="card-label" style="color:rgba(242,239,233,.6);">MY WORK</p>
+        <p class="card-title" style="color:#F2EFE9;">Projects</p>
+        <p class="card-sub" style="color:rgba(242,239,233,.6);">Full-stack apps & experiments</p>
+      </div>
+    </a>
+
+    <!-- ══ CARD 6 — RESUME ══ -->
+    <a href="https://drive.google.com/drive/folders/1xQGBmvvE0xf5F2GbSiFY9MnrMb93EvMv?usp=sharing" target="_blank" download class="card card-resume">
+      <div class="card-icon-row">
+        <div class="card-icon-wrap dark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Download Resume">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <div class="arrow-chip dark">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+      </div>
+      <div>
+        <p class="card-label">PDF</p>
+        <p class="card-title">Resumé</p>
+      </div>
+    </a>
+  
+    <!-- ══ CARD 7 — CTA ══ -->
+    <div class="card card-cta span-2">
+      <div>
+        <p class="cta-text-label">AVAILABILITY</p>
+        <p class="cta-text-main">Looking for my first<br/>fullstack role.</p>
+      </div>
+      <a href="mailto:merakchioussama@gmail.com" class="cta-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        Say Hello
+      </a>
+    </div>
+
+    <!-- ══ CARD 8 — STACK ══ -->
+    <div class="card card-stack span-2">
+      <p class="stack-label">TECH STACK</p>
+      <div class="stack-grid" id="stack-grid"></div>
+    </div>
+
+  </div><!-- /bento -->
+
+  <script>
+    /* ═══════════════════════════════════════════════════
+       CURSOR — Rebuilt from scratch
+       Rule: write e.clientX/Y directly into translate3d.
+       No lerp. No RAF. No intermediate variables.
+       The centering (-50%,-50%) lives in CSS as a base
+       transform, and we PREPEND the position in JS.
+    ═══════════════════════════════════════════════════ */
+    const cursor = document.getElementById('cursor');
+
+    // Only activate on devices with a fine pointer (mouse)
+    if (window.matchMedia('(pointer: fine)').matches) {
+
+      // Show cursor on first real mouse movement
+      let cursorVisible = false;
+
+      window.addEventListener('mousemove', e => {
+        // Direct, zero-lag position write
+        // translate3d(posX, posY) then translate(-50%,-50%) centers it
+        cursor.style.transform =
+          `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
+
+        if (!cursorVisible) {
+          cursor.style.opacity = '1';
+          cursorVisible = true;
+        }
+      });
+
+      // Hide when mouse leaves the window entirely
+      document.addEventListener('mouseleave', () => {
+        cursor.style.opacity = '0';
+        cursorVisible = false;
+      });
+      document.addEventListener('mouseenter', () => {
+        cursor.style.opacity = '1';
+        cursorVisible = true;
+      });
+
+      // Expand on interactive hover
+      const interactives = document.querySelectorAll(
+        'a, button, .card, .stack-pill, .cta-btn'
+      );
+      interactives.forEach(el => {
+        el.addEventListener('mouseenter', () => cursor.classList.add('is-hovering'));
+        el.addEventListener('mouseleave', () => cursor.classList.remove('is-hovering'));
+      });
+
+      // Press state
+      document.addEventListener('mousedown', () => {
+        cursor.classList.remove('is-hovering');
+        cursor.classList.add('is-pressing');
+      });
+      document.addEventListener('mouseup', () => {
+        cursor.classList.remove('is-pressing');
+        // Re-check if still hovering something
+        const el = document.elementFromPoint(
+          parseFloat(cursor.style.transform.match(/translate3d\(([^,]+)/)?.[1]) || 0,
+          parseFloat(cursor.style.transform.match(/translate3d\([^,]+,\s*([^,]+)/)?.[1]) || 0
+        );
+        if (el?.closest('a, button, .card, .stack-pill, .cta-btn')) {
+          cursor.classList.add('is-hovering');
+        }
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════
+       TILT — Safe 3D tilt that resets cleanly
+       Uses mousemove relative to card bounds.
+       Resets on mouseleave via CSS transition.
+    ═══════════════════════════════════════════════════ */
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r   = card.getBoundingClientRect();
+        const dx  = (e.clientX - r.left - r.width  / 2) / (r.width  / 2);
+        const dy  = (e.clientY - r.top  - r.height / 2) / (r.height / 2);
+        // Clamp tilt to ±4deg and disable transition during move for snappiness
+        card.style.transition = 'box-shadow .15s ease';
+        card.style.transform  =
+          `perspective(700px) rotateX(${(-dy * 4).toFixed(2)}deg) rotateY(${(dx * 4).toFixed(2)}deg) translateZ(4px)`;
+      });
+
+      card.addEventListener('mouseleave', () => {
+        // Let CSS transition handle the spring-back
+        card.style.transition =
+          'box-shadow .15s ease, transform .5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        card.style.transform = 'perspective(700px) rotateX(0deg) rotateY(0deg) translateZ(0)';
+      });
+    });
+
+    /* ═══════════════════════════════════════════════════
+       BURST DOTS ON CLICK
+    ═══════════════════════════════════════════════════ */
+    const BURST_COLORS = ['#C8F135','#FF4D1C','#1A1AFF','#FFD600','#FF9ECD','#0E0E0E'];
+
+    document.querySelectorAll('.card, .cta-btn').forEach(el => {
+      el.addEventListener('pointerdown', e => {
+        const n = 7;
+        for (let i = 0; i < n; i++) {
+          const dot   = document.createElement('div');
+          dot.className = 'burst-dot';
+          dot.style.background = BURST_COLORS[Math.floor(Math.random() * BURST_COLORS.length)];
+          dot.style.left = e.clientX + 'px';
+          dot.style.top  = e.clientY + 'px';
+          document.body.appendChild(dot);
+
+          const angle = (Math.PI * 2 / n) * i + Math.random() * .4;
+          const dist  = 30 + Math.random() * 50;
+
+          dot.animate([
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+            { transform: `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px)) scale(0)`, opacity: 0 }
+          ], {
+            duration: 400 + Math.random() * 150,
+            easing: 'cubic-bezier(.25,1,.5,1)'
+          }).onfinish = () => dot.remove();
+        }
+      });
+    });
+
+    /* ═══════════════════════════════════════════════════
+       TICKER
+    ═══════════════════════════════════════════════════ */
+    const skills = [
+      'React','Node.js','TypeScript','PostgreSQL',
+      'Express','REST APIs','Git','Docker',
+      'Tailwind','MySQL','Jest','Linux'
+    ];
+    const tickerEl = document.getElementById('ticker');
+    // Double the array for seamless loop
+    tickerEl.innerHTML = [...skills, ...skills].map(s =>
+      `<span class="ticker-item"><span style="opacity:.35">✦</span> ${s} </span>`
+    ).join('');
+
+    /* ═══════════════════════════════════════════════════
+       STACK PILLS
+    ═══════════════════════════════════════════════════ */
+    const stack = [
+      { label: 'JavaScript', svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#0E0E0E"><path d="M0 0h24v24H0V0zm22.034 18.276c-.175-1.095-.888-2.015-3.003-2.873-.736-.345-1.554-.585-1.797-1.14-.091-.33-.105-.51-.046-.705.15-.646.915-.84 1.515-.66.39.12.75.42.976.9 1.034-.676 1.034-.676 1.755-1.125-.27-.42-.404-.601-.586-.78-.63-.705-1.469-1.065-2.834-1.034l-.705.089c-.676.165-1.32.525-1.71 1.005-1.14 1.291-.811 3.541.569 4.471 1.365 1.02 3.361 1.244 3.616 2.205.24 1.17-.87 1.545-1.966 1.41-.811-.18-1.26-.586-1.755-1.336l-1.83 1.051c.21.48.45.689.81 1.109 1.74 1.756 6.09 1.666 6.871-1.004.029-.09.24-.705.074-1.65l.046.067zm-8.983-7.245h-2.248c0 1.938-.009 3.864-.009 5.805 0 1.232.063 2.363-.138 2.711-.33.689-1.18.601-1.566.48-.396-.196-.597-.466-.83-.855-.063-.105-.11-.196-.127-.196l-1.825 1.125c.305.63.75 1.172 1.324 1.517.855.51 2.004.675 3.207.405.783-.226 1.458-.691 1.811-1.411.51-.93.402-2.07.397-3.346.012-2.054 0-4.109 0-6.179l.004-.056z"/></svg>` },
+      { label: 'TypeScript', svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#3178C6"><path d="M1.125 0C.502 0 0 .502 0 1.125v21.75C0 23.498.502 24 1.125 24h21.75c.623 0 1.125-.502 1.125-1.125V1.125C24 .502 23.498 0 22.875 0zm17.363 9.75c.612 0 1.154.037 1.627.111a6.38 6.38 0 0 1 1.306.34v2.458a3.95 3.95 0 0 0-.643-.361 5.093 5.093 0 0 0-.717-.26 5.453 5.453 0 0 0-1.426-.2c-.3 0-.573.028-.819.086a2.1 2.1 0 0 0-.623.242c-.17.104-.3.229-.393.374a.888.888 0 0 0-.14.49c0 .196.053.373.156.529.104.156.252.304.443.444s.423.276.696.41c.273.135.582.274.926.416.47.197.892.407 1.266.628.374.222.695.473.963.753.268.279.472.598.614.957.142.359.214.776.214 1.253 0 .657-.125 1.21-.373 1.656a3.033 3.033 0 0 1-1.012 1.085 4.38 4.38 0 0 1-1.487.596c-.566.12-1.163.18-1.79.18a9.916 9.916 0 0 1-1.84-.164 5.544 5.544 0 0 1-1.512-.493v-2.63a5.033 5.033 0 0 0 3.237 1.2c.333 0 .624-.03.872-.09.249-.06.456-.144.623-.25.166-.108.29-.234.373-.38a1.023 1.023 0 0 0-.074-1.089 2.12 2.12 0 0 0-.537-.5 5.597 5.597 0 0 0-.807-.444 27.72 27.72 0 0 0-1.007-.436c-.918-.383-1.602-.852-2.053-1.405-.45-.553-.676-1.222-.676-2.005 0-.614.123-1.141.369-1.582.246-.441.58-.804 1.004-1.089a4.494 4.494 0 0 1 1.47-.629 7.536 7.536 0 0 1 1.77-.201zm-15.113.188h9.563v2.166H9.506v9.646H6.789v-9.646H3.375z"/></svg>` },
+      { label: 'React',      svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#61DAFB"><path d="M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38a2.4 2.4 0 0 0-1.092-.278zm-.005 1.09c.275 0 .511.065.73.194.909.522 1.27 2.555.783 5.213-.077.42-.177.85-.296 1.29a24.316 24.316 0 0 0-3.24-.547 24.32 24.32 0 0 0-2.134-2.66c1.562-1.519 3.072-2.49 4.157-2.49zM9.098 9.516a24.75 24.75 0 0 1 2.134-2.66C9.67 8.374 8.16 9.346 7.074 9.346c-.274 0-.51-.064-.73-.193-.909-.522-1.27-2.555-.783-5.213.077-.42.177-.85.296-1.29.02-.086.041-.17.063-.255A24.362 24.362 0 0 0 9.16 4.942c-.765.917-1.495 1.894-2.133 2.916a21.5 21.5 0 0 0-.965 1.812c-.278-.04-.55-.085-.82-.138.23-.812.5-1.596.809-2.344.086-.205.176-.408.27-.607zm1.754-.003c.563.694 1.123 1.449 1.677 2.26.557.812 1.065 1.636 1.524 2.463-.46.827-.967 1.651-1.524 2.463-.554.811-1.114 1.566-1.677 2.26-.563-.694-1.123-1.449-1.677-2.26-.557-.812-1.065-1.636-1.524-2.463.46-.827.967-1.651 1.524-2.463.554-.811 1.114-1.566 1.677-2.26zm3.63 1.027a24.33 24.33 0 0 1 2.134 2.66c-.74 1.52-1.57 2.94-2.48 4.243a21.5 21.5 0 0 0-1.983-.148 21.5 21.5 0 0 0-1.984.148 21.77 21.77 0 0 1-1.047-1.812 21.5 21.5 0 0 1-.965-1.812 21.72 21.72 0 0 1-.808-2.344c.27-.053.541-.098.82-.138.278-.04.558-.073.838-.1a24.33 24.33 0 0 1 2.146 2.66zm1.03 7.636c1.085 0 2.595-.971 4.157-2.49a24.32 24.32 0 0 0-2.134-2.66 24.75 24.75 0 0 1 2.134 2.66c1.087.33 2.143.793 3.157 1.38-.031.092-.063.183-.096.273-.23.812-.5 1.596-.809 2.344a21.5 21.5 0 0 1-.27.607c-.563.694-1.123 1.449-1.677 2.26a24.75 24.75 0 0 1-2.134-2.66c-.56-.693-1.12-1.448-1.677-2.26-.554-.811-1.065-1.636-1.524-2.463.46-.827.97-1.651 1.524-2.463a24.33 24.33 0 0 0 1.306-2.344z"/></svg>` },
+      { label: 'Node.js',    svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#339933"><path d="M11.998.001a1.006 1.006 0 0 0-.504.135L1.616 5.848A1.01 1.01 0 0 0 1.11 6.72v11.558a1.01 1.01 0 0 0 .506.872l9.878 5.712a1.01 1.01 0 0 0 1.008 0l9.878-5.712a1.01 1.01 0 0 0 .506-.872V6.72a1.01 1.01 0 0 0-.506-.872L12.502.136a1.006 1.006 0 0 0-.504-.135zm-.096 3.578a.387.387 0 0 1 .196.05l7.25 4.193a.39.39 0 0 1 .196.337v8.384a.39.39 0 0 1-.196.337l-7.25 4.193a.387.387 0 0 1-.392 0l-7.25-4.193a.39.39 0 0 1-.196-.337V8.159a.39.39 0 0 1 .196-.337l7.25-4.193a.387.387 0 0 1 .196-.05zm-.195 2.6L8.3 8.327a.293.293 0 0 0-.146.252v4.178a.293.293 0 0 0 .293.293h.488a.293.293 0 0 0 .293-.293v-3.47l2.575 1.487a.293.293 0 0 0 .293 0l2.575-1.487v3.47a.293.293 0 0 0 .293.293h.488a.293.293 0 0 0 .293-.293V8.579a.293.293 0 0 0-.146-.252l-3.408-1.148a.293.293 0 0 0-.244 0z"/></svg>` },
+      { label: 'PostgreSQL', svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#4169E1"><path d="M17.128 0a10.134 10.134 0 0 0-2.755.403l-.063.02A10.922 10.922 0 0 0 12.6.258C11.422.238 10.41.524 9.594 1 8.79.721 7.122.24 5.364.336 4.14.403 2.804.775 1.79 1.82.77 2.873.199 4.42.03 6.47c-.272 3.235.387 5.45 1.03 6.836.323.695.652 1.151.925 1.408.273.258.5.336.69.296l.007-.002h.013c.332 0 .658-.168.97-.44.29-.253.546-.581.79-.912.06.12.123.24.19.353.3.506.687.948 1.108 1.258.2.148.41.272.633.356-.218.522-.328 1.12-.26 1.799.048.478.196.964.665 1.328.469.364 1.073.425 1.612.351.61-.085 1.317-.368 2.131-.794a8.447 8.447 0 0 0 1.13.712c.6.303 1.325.502 2.077.415.596-.07 1.2-.308 1.702-.694.037.034.077.067.114.1.512.45 1.103.807 1.712 1.0.615.2 1.107.212 1.503.068.39-.14.67-.426.842-.75.17-.322.24-.668.255-.995a5.641 5.641 0 0 0-.068-1.036c-.023-.168-.046-.31-.065-.43.168-.166.396-.436.623-.817.365-.612.73-1.493.923-2.607.314-1.802.085-3.218-.117-4.14-.203-.921-.412-1.395-.412-1.395a10.126 10.126 0 0 0-6.73-7.35z"/></svg>` },
+      { label: 'Docker',     svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#2496ED"><path d="M13.983 11.078h2.119a.186.186 0 0 0 .186-.185V9.006a.186.186 0 0 0-.186-.186h-2.119a.185.185 0 0 0-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 0 0 .186-.186V3.574a.186.186 0 0 0-.186-.185h-2.118a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 0 0 .186-.186V6.29a.186.186 0 0 0-.186-.185h-2.118a.185.185 0 0 0-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 0 0 .184-.186V6.29a.185.185 0 0 0-.185-.185H8.1a.185.185 0 0 0-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 0 0 .185-.186V6.29a.185.185 0 0 0-.185-.185H5.136a.186.186 0 0 0-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 0 0 .186-.185V9.006a.186.186 0 0 0-.186-.186h-2.118a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 0 0 .184-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.185.185 0 0 0-.185.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 0 0 .185-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.186.186 0 0 0-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 0 0 .184-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 0 0-.75.748 11.376 11.376 0 0 0 .692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 0 0 3.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/></svg>` },
+      { label: 'Git',        svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#F05032"><path d="M23.546 10.93L13.067.452c-.604-.603-1.582-.603-2.188 0L8.708 2.627l2.76 2.76c.645-.215 1.379-.07 1.889.441.516.515.658 1.258.438 1.9l2.658 2.66c.645-.223 1.387-.078 1.9.435.721.72.721 1.884 0 2.604-.719.719-1.881.719-2.6 0-.539-.541-.674-1.337-.404-1.996L12.86 8.955v6.525c.176.086.342.203.488.348.713.721.713 1.883 0 2.6-.719.721-1.889.721-2.609 0-.719-.719-.719-1.879 0-2.598.182-.18.387-.316.605-.406V8.835c-.217-.091-.424-.222-.6-.401-.545-.545-.676-1.342-.396-2.009L7.636 3.7.45 10.881c-.6.605-.6 1.584 0 2.189l10.48 10.477c.604.604 1.582.604 2.186 0l10.43-10.43c.605-.603.605-1.582 0-2.187"/></svg>` },
+      { label: 'Tailwind',   svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#06B6D4"><path d="M12.001 4.8c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624C13.666 10.618 15.027 12 18.001 12c3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C16.337 6.182 14.976 4.8 12.001 4.8zm-6 7.2c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624 1.177 1.194 2.538 2.576 5.512 2.576 3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C10.337 13.382 8.976 12 6.001 12z"/></svg>` },
+      { label: 'MySQL', svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#4479A1"><path d="M16.405 5.501c-.115 0-.193.014-.274.033v.013h.014c.054.104.146.18.214.273.054.107.1.214.154.32l.014-.015c.094-.066.14-.172.14-.333-.04-.047-.046-.094-.08-.14-.04-.067-.126-.1-.18-.153zM5.77 18.695h-.927a50.854 50.854 0 00-.27-4.41h-.008l-1.41 4.41H2.45l-1.4-4.41h-.01a72.892 72.892 0 00-.195 4.41H0c.055-1.966.192-3.81.41-5.53h1.15l1.335 4.064h.008l1.347-4.064h1.095c.242 2.015.384 3.86.428 5.53zm4.017-4.08c-.378 2.045-.876 3.533-1.492 4.46-.482.716-1.01 1.073-1.583 1.073-.153 0-.34-.046-.566-.138v-.494c.11.017.24.026.386.026.268 0 .483-.075.647-.222.197-.18.295-.382.295-.605 0-.155-.077-.47-.23-.944L6.23 14.615h.91l.727 2.36c.164.536.233.91.205 1.123.4-1.064.678-2.227.835-3.483zm12.325 4.08h-2.63v-5.53h.885v4.85h1.745zm-3.32.135l-1.016-.5c.09-.076.177-.158.255-.25.433-.506.648-1.258.648-2.253 0-1.83-.718-2.746-2.155-2.746-.704 0-1.254.232-1.65.697-.43.508-.646 1.256-.646 2.245 0 .972.19 1.686.574 2.14.35.41.877.615 1.583.615.264 0 .506-.033.725-.098l1.325.772.36-.622zM15.5 17.588c-.225-.36-.337-.94-.337-1.736 0-1.393.424-2.09 1.27-2.09.443 0 .77.167.977.5.224.362.336.936.336 1.723 0 1.404-.424 2.108-1.27 2.108-.445 0-.77-.167-.978-.5zm-1.658-.425c0 .47-.172.856-.516 1.156-.344.3-.803.45-1.384.45-.543 0-1.064-.172-1.573-.515l.237-.476c.438.22.833.328 1.19.328.332 0 .593-.073.783-.22a.754.754 0 00.3-.615c0-.33-.23-.61-.648-.845-.388-.213-1.163-.657-1.163-.657-.422-.307-.632-.636-.632-1.177 0-.45.157-.81.47-1.085.315-.278.72-.415 1.22-.415.512 0 .98.136 1.4.41l-.213.476a2.726 2.726 0 00-1.064-.23c-.283 0-.502.068-.654.206a.685.685 0 00-.248.524c0 .328.234.61.666.85.393.215 1.187.67 1.187.67.433.305.648.63.648 1.168zm9.382-5.852c-.535-.014-.95.04-1.297.188-.1.04-.26.04-.274.167.055.053.063.14.11.214.08.134.218.313.346.407.14.11.28.216.427.31.26.16.555.255.81.416.145.094.293.213.44.313.073.05.12.14.214.172v-.02c-.046-.06-.06-.147-.105-.214-.067-.067-.134-.127-.2-.193a3.223 3.223 0 00-.695-.675c-.214-.146-.682-.35-.77-.595l-.013-.014c.146-.013.32-.066.46-.106.227-.06.435-.047.67-.106.106-.027.213-.06.32-.094v-.06c-.12-.12-.21-.283-.334-.395a8.867 8.867 0 00-1.104-.823c-.21-.134-.476-.22-.697-.334-.08-.04-.214-.06-.26-.127-.12-.146-.19-.34-.275-.514a17.69 17.69 0 01-.547-1.163c-.12-.262-.193-.523-.34-.763-.69-1.137-1.437-1.826-2.586-2.5-.247-.14-.543-.2-.856-.274-.167-.008-.334-.02-.5-.027-.11-.047-.216-.174-.31-.235-.38-.24-1.364-.76-1.644-.072-.18.434.267.862.422 1.082.115.153.26.328.34.5.047.116.06.235.107.356.106.294.207.622.347.897.073.14.153.287.247.413.054.073.146.107.167.227-.094.136-.1.334-.154.5-.24.757-.146 1.693.194 2.25.107.166.362.534.703.393.3-.12.234-.5.32-.835.02-.08.007-.133.048-.187v.015c.094.188.188.367.274.555.206.328.566.668.867.895.16.12.287.328.487.402v-.02h-.015c-.043-.058-.11-.086-.167-.133a3.445 3.445 0 01-.35-.4 8.76 8.76 0 01-.747-1.218c-.11-.21-.202-.436-.29-.643-.04-.08-.04-.2-.107-.24-.1.146-.247.273-.32.453-.127.288-.14.642-.188 1.01-.027.007-.014 0-.027.014-.214-.052-.287-.274-.367-.46-.2-.475-.233-1.238-.06-1.785.047-.14.247-.582.167-.716-.042-.127-.174-.2-.247-.303a2.478 2.478 0 01-.24-.427c-.16-.374-.24-.788-.414-1.162-.08-.173-.22-.354-.334-.513-.127-.18-.267-.307-.368-.52-.033-.073-.08-.194-.027-.274.014-.054.042-.075.094-.09.088-.072.335.022.422.062.247.1.455.194.662.334.094.066.195.193.315.226h.14c.214.047.455.014.655.073.355.114.675.28.962.46a5.953 5.953 0 012.085 2.286c.08.154.115.295.188.455.14.33.313.663.455.982.14.315.275.636.476.897.1.14.502.213.682.286.133.06.34.115.46.188.23.14.454.3.67.454.11.076.443.243.463.378z"/></svg>` }    ];
+
+    const grid = document.getElementById('stack-grid');
+    stack.forEach(({ label, svg }) => {
+      const pill = document.createElement('div');
+      pill.className = 'stack-pill';
+      pill.innerHTML = `${svg}<span>${label}</span>`;
+      grid.appendChild(pill);
+    });
+  </script>
+</body>
+</html>
